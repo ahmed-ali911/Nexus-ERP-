@@ -6,8 +6,7 @@ from sqlalchemy import engine_from_config, pool
 from app.core.config import settings
 from app.core.database import Base
 
-# Import module models here as they're added, e.g.:
-# from app.modules.inventory.models import *  # noqa: F401,F403
+from app.modules.organization import models as organization_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

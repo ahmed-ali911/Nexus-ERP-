@@ -17,7 +17,11 @@ dependencies = [
 dev = [
     "ruff>=0.8",
     "black>=24.10",
+    "pytest>=8.3",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
@@ -25,6 +29,12 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection pattern (`db: Session = Depends(get_db)`)
+# relies on calling Depends() in argument defaults -- that's correct here,
+# not the mutable-default footgun B008 normally guards against.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
 
 [tool.black]
 line-length = 100
