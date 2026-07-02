@@ -1,0 +1,16 @@
+# Env files
+.env
+
+# Backend (Python)
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.ruff_cache/
+backend/*.egg-info/
+
+# Frontend (Node)
+frontend/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
