@@ -35,3 +35,17 @@ class SoftDeleteMixin:
     deleted_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class CreatedOnlyMixin:
+    """For genuinely immutable, append-only rows (e.g. ledger entries) where
+    updated_at/updated_by or soft-delete would be dishonest: nothing ever
+    updates or deletes these rows -- "editing" means posting a new row.
+    """
+
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )

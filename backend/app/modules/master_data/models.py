@@ -168,6 +168,9 @@ class Product(Base, CompanyScopedMixin, TimestampMixin, AuditMixin, SoftDeleteMi
     is_stockable: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
+    is_batch_tracked: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
 
     @property
     def effective_purchase_unit_id(self) -> int:

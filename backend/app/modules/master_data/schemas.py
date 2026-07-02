@@ -128,6 +128,7 @@ class ProductBase(BaseModel):
     is_sellable: bool = True
     is_purchasable: bool = True
     is_stockable: bool = True
+    is_batch_tracked: bool = False
 
 
 class ProductCreate(ProductBase):
@@ -148,6 +149,7 @@ class ProductUpdate(BaseModel):
     is_sellable: bool | None = None
     is_purchasable: bool | None = None
     is_stockable: bool | None = None
+    is_batch_tracked: bool | None = None
 
 
 class ProductResponse(ProductBase):

@@ -35,15 +35,15 @@ def _assert_same_unit_type(unit_a: models.UnitOfMeasure, unit_b: models.UnitOfMe
 
 
 def _assert_base_unit_mutable(db: Session, product: models.Product, new_base_unit_id: int) -> None:
-    """Guard for changing a product's base_unit.
+    from app.modules.inventory.models import StockMovement  # lazy: avoids circular import
 
-    TODO(inventory): once a stock-transactions ledger exists, raise
-    BusinessRuleViolation here if any transaction references this product.
-    No-op today -- there is nothing to check yet, and update_product() is
-    already wired to call this unconditionally so nothing else needs to
-    change when that table lands.
-    """
-    return
+    has_movements = db.scalars(
+        select(StockMovement).where(StockMovement.product_id == product.id).limit(1)
+    ).first()
+    if has_movements is not None:
+        raise BusinessRuleViolation(
+            f"Cannot change base unit for product {product.code}: stock movements already exist"
+        )
 
 
 # --- Units of Measure ----------------------------------------------------
@@ -248,6 +248,7 @@ def create_product(
         is_sellable=payload.is_sellable,
         is_purchasable=payload.is_purchasable,
         is_stockable=payload.is_stockable,
+        is_batch_tracked=payload.is_batch_tracked,
         created_by=actor_id,
         updated_by=actor_id,
     )
