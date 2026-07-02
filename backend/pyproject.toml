@@ -11,6 +11,9 @@ dependencies = [
     "psycopg2-binary>=2.9",
     "alembic>=1.14",
     "redis>=5.2",
+    "pyjwt>=2.9",
+    "bcrypt>=4.2",
+    "pydantic[email]>=2.6",
 ]
 
 [dependency-groups]
@@ -32,9 +35,15 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's dependency-injection pattern (`db: Session = Depends(get_db)`)
-# relies on calling Depends() in argument defaults -- that's correct here,
-# not the mutable-default footgun B008 normally guards against.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
+# relies on calling Depends() -- and dependency-factories like
+# require_permission(code) -- in argument defaults; that's correct here, not
+# the mutable-default footgun B008 normally guards against.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "app.modules.auth.dependencies.require_permission",
+]
 
 [tool.black]
 line-length = 100

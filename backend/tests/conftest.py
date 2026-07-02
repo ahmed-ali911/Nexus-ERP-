@@ -1,7 +1,10 @@
 import pytest
 
 from app.core.database import Base, SessionLocal, engine
-from app.modules.organization import models  # noqa: F401  (registers tables on Base.metadata)
+from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.organization import models as org_models  # noqa: F401
+
+# Both imports above register their tables on Base.metadata for create_all().
 
 
 @pytest.fixture(scope="session", autouse=True)

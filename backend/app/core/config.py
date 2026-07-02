@@ -1,9 +1,7 @@
 """Central settings/config engine.
 
 Loads deployment-level configuration from environment variables (see
-.env.example at the repo root). This is the only "core" module with real
-logic at this stage — everything else in app/core is a structural
-placeholder until the corresponding module is built.
+.env.example at the repo root).
 """
 
 from functools import lru_cache
@@ -25,6 +23,12 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
 
     SECRET_KEY: str = "changeme"
+
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    MAX_FAILED_LOGIN_ATTEMPTS: int = 5
+    LOCKOUT_DURATION_MINUTES: int = 15
 
 
 @lru_cache

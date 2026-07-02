@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import Boolean, DateTime, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -18,10 +18,14 @@ class TimestampMixin:
 
 
 class AuditMixin:
-    # Not FK-constrained yet: the users table doesn't exist until RBAC/Users lands.
-    # Add the FK constraint in a follow-up migration once it does.
-    created_by: Mapped[int | None] = mapped_column(nullable=True)
-    updated_by: Mapped[int | None] = mapped_column(nullable=True)
+    # SET NULL (not RESTRICT): an audit trail shouldn't block deleting/anonymizing
+    # a user. Nullable already covers "no known creator" (e.g. seed-script rows).
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class SoftDeleteMixin:
