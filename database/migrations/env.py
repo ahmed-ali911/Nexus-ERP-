@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.database import Base
 
 from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.master_data import models as master_data_models  # noqa: F401
 from app.modules.organization import models as organization_models  # noqa: F401
 
 config = context.config

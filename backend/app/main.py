@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.core.exceptions import AuthenticationError, BusinessRuleViolation, NotFoundError
 from app.modules.auth.router import router as auth_router
+from app.modules.master_data.router import router as master_data_router
 from app.modules.organization.router import router as organization_router
 
 app = FastAPI(title=settings.APP_NAME)
@@ -41,3 +42,4 @@ def health():
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(organization_router, prefix="/api/v1")
+app.include_router(master_data_router, prefix="/api/v1")
