@@ -482,6 +482,7 @@ def create_customer(
         customer_type=payload.customer_type,
         payment_terms=payload.payment_terms,
         credit_limit=payload.credit_limit,
+        payment_term_days=payload.payment_term_days,
         phone=payload.phone,
         address=payload.address,
         tax_id=payload.tax_id,

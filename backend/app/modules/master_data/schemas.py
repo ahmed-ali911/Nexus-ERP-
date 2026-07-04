@@ -176,6 +176,7 @@ class CustomerBase(BaseModel):
     customer_type: CustomerType
     payment_terms: PaymentTerms
     credit_limit: Decimal | None = Field(default=None, ge=0)
+    payment_term_days: int = Field(default=30, ge=0)
     phone: str | None = Field(default=None, max_length=30)
     address: str | None = None
     tax_id: str | None = Field(default=None, max_length=50)
@@ -197,6 +198,7 @@ class CustomerUpdate(BaseModel):
     customer_type: CustomerType | None = None
     payment_terms: PaymentTerms | None = None
     credit_limit: Decimal | None = Field(default=None, ge=0)
+    payment_term_days: int | None = Field(default=None, ge=0)
     phone: str | None = Field(default=None, max_length=30)
     address: str | None = None
     tax_id: str | None = Field(default=None, max_length=50)

@@ -3,11 +3,17 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
-from app.core.exceptions import AuthenticationError, BusinessRuleViolation, NotFoundError
+from app.core.exceptions import (
+    ApprovalRequired,
+    AuthenticationError,
+    BusinessRuleViolation,
+    NotFoundError,
+)
 from app.modules.auth.router import router as auth_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.master_data.router import router as master_data_router
 from app.modules.organization.router import router as organization_router
+from app.modules.sales.router import router as sales_router
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -29,6 +35,14 @@ async def business_rule_violation_handler(
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
+@app.exception_handler(ApprovalRequired)
+async def approval_required_handler(request: Request, exc: ApprovalRequired) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={"detail": exc.detail, "approval_request_id": exc.approval_request_id},
+    )
+
+
 @app.exception_handler(IntegrityError)
 async def integrity_error_handler(request: Request, exc: IntegrityError) -> JSONResponse:
     return JSONResponse(
@@ -45,3 +59,4 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(organization_router, prefix="/api/v1")
 app.include_router(master_data_router, prefix="/api/v1")
 app.include_router(inventory_router, prefix="/api/v1")
+app.include_router(sales_router, prefix="/api/v1")

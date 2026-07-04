@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import datetime
+import decimal
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Table,
     UniqueConstraint,
@@ -108,6 +111,13 @@ class Role(Base, TimestampMixin, AuditMixin, SoftDeleteMixin):
     name_ar: Mapped[str] = mapped_column(String(200), nullable=False)
     is_system: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
+    )
+    max_discount_pct: Mapped[decimal.Decimal] = mapped_column(
+        Numeric(5, 2),
+        CheckConstraint("max_discount_pct >= 0 AND max_discount_pct <= 100", name="ck_roles_max_discount_pct"),
+        nullable=False,
+        default=0,
+        server_default="0.00",
     )
 
     permissions: Mapped[list[Permission]] = relationship(secondary=role_permissions)

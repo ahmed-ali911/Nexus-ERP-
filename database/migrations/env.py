@@ -10,6 +10,7 @@ from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.inventory import models as inventory_models  # noqa: F401
 from app.modules.master_data import models as master_data_models  # noqa: F401
 from app.modules.organization import models as organization_models  # noqa: F401
+from app.modules.sales import models as sales_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
