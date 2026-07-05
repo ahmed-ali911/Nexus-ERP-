@@ -8,6 +8,7 @@ from app.modules.auth.dependencies import require_permission
 from app.modules.auth.models import User
 
 from . import models, schemas, service
+from app.modules.shared.models import ApprovalStatus
 
 router = APIRouter(prefix="/sales", tags=["sales"])
 
@@ -140,7 +141,7 @@ def update_price_list_item(
 
 @router.get("/approvals", response_model=list[schemas.ApprovalRequestResponse])
 def list_approvals(
-    status: models.ApprovalStatus | None = None,
+    status: ApprovalStatus | None = None,
     reference_type: str | None = None,
     current_user: User = Depends(require_permission("sales.approval.read")),
     db: Session = Depends(get_db),

@@ -27,12 +27,11 @@ from app.modules.sales import schemas as s_schemas
 from app.modules.sales import service as s_service
 from app.modules.sales.models import (
     AllocationMethod,
-    ApprovalRequestType,
-    ApprovalStatus,
     CollectionStatus,
     CreditNoteStatus,
     InvoiceStatus,
 )
+from app.modules.shared.models import ApprovalRequestType, ApprovalStatus
 
 # ---------------------------------------------------------------------------
 # Low-level builder helpers

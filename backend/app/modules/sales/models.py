@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import datetime
+import datetime  # used by SalesInvoice.posted_at etc.
 import decimal
 import enum
 
@@ -24,6 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 from app.core.mixins import AuditMixin, SoftDeleteMixin, TimestampMixin
 from app.modules.organization.mixins import CompanyScopedMixin
+
 
 
 class MixedTermsPolicy(enum.StrEnum):
@@ -54,21 +55,6 @@ class CollectionStatus(enum.StrEnum):
     DRAFT = "DRAFT"
     POSTED = "POSTED"
     CANCELLED = "CANCELLED"
-
-
-class ApprovalRequestType(enum.StrEnum):
-    CREDIT_LIMIT_OVERRIDE = "CREDIT_LIMIT_OVERRIDE"
-    NEGATIVE_STOCK = "NEGATIVE_STOCK"
-    DISCOUNT_OVERRIDE = "DISCOUNT_OVERRIDE"
-    MANUAL_PRICE = "MANUAL_PRICE"
-    CANCEL_AFTER_POST = "CANCEL_AFTER_POST"
-    BACKDATED_INVOICE = "BACKDATED_INVOICE"
-
-
-class ApprovalStatus(enum.StrEnum):
-    PENDING = "PENDING"
-    APPROVED = "APPROVED"
-    REJECTED = "REJECTED"
 
 
 class PriceSource(enum.StrEnum):
@@ -184,53 +170,6 @@ class PriceListItem(Base, TimestampMixin, AuditMixin, SoftDeleteMixin):
         BigInteger, ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     unit_price: Mapped[decimal.Decimal] = mapped_column(Numeric(18, 3), nullable=False)
-
-
-# ---------------------------------------------------------------------------
-# ApprovalRequest
-# ---------------------------------------------------------------------------
-
-
-class ApprovalRequest(Base, CompanyScopedMixin, TimestampMixin, AuditMixin):
-    __tablename__ = "approval_requests"
-    __table_args__ = (
-        Index("ix_approval_requests_ref", "reference_type", "reference_id", "request_type", "status"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    request_type: Mapped[ApprovalRequestType] = mapped_column(
-        SAEnum(
-            ApprovalRequestType,
-            native_enum=False,
-            validate_strings=True,
-            length=30,
-            name="ck_approval_requests_type",
-        ),
-        nullable=False,
-    )
-    reference_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    reference_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    requested_by: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
-    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[ApprovalStatus] = mapped_column(
-        SAEnum(
-            ApprovalStatus,
-            native_enum=False,
-            validate_strings=True,
-            length=10,
-            name="ck_approval_requests_status",
-        ),
-        nullable=False,
-        default=ApprovalStatus.PENDING,
-        server_default="PENDING",
-    )
-    approved_by: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
-    decided_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    approval_metadata: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 # ---------------------------------------------------------------------------

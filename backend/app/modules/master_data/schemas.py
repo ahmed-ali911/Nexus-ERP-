@@ -226,6 +226,11 @@ class SupplierBase(BaseModel):
     name_ar: str = Field(max_length=200)
     supplier_type: SupplierType
     payment_terms: PaymentTerms
+    payment_term_days: int = Field(default=30, ge=0)
+    credit_limit: Decimal | None = Field(default=None, ge=0)
+    currency: str = Field(default="KWD", max_length=3)
+    tax_profile: str | None = Field(default=None, max_length=50)
+    preferred_payment_method: str | None = Field(default=None, max_length=50)
     phone: str | None = Field(default=None, max_length=30)
     address: str | None = None
     tax_id: str | None = Field(default=None, max_length=50)
@@ -242,6 +247,11 @@ class SupplierUpdate(BaseModel):
     name_ar: str | None = Field(default=None, max_length=200)
     supplier_type: SupplierType | None = None
     payment_terms: PaymentTerms | None = None
+    payment_term_days: int | None = Field(default=None, ge=0)
+    credit_limit: Decimal | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, max_length=3)
+    tax_profile: str | None = Field(default=None, max_length=50)
+    preferred_payment_method: str | None = Field(default=None, max_length=50)
     phone: str | None = Field(default=None, max_length=30)
     address: str | None = None
     tax_id: str | None = Field(default=None, max_length=50)

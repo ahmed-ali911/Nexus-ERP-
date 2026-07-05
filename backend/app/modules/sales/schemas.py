@@ -7,14 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .models import (
     AllocationMethod,
-    ApprovalRequestType,
-    ApprovalStatus,
     CollectionStatus,
     CreditNoteStatus,
     InvoiceStatus,
     MixedTermsPolicy,
     PriceSource,
 )
+from app.modules.shared.models import ApprovalRequestType, ApprovalStatus
 
 # --- SalesSettings ----------------------------------------------------------
 

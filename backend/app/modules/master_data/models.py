@@ -308,6 +308,15 @@ class Supplier(Base, CompanyScopedMixin, TimestampMixin, AuditMixin, SoftDeleteM
         ),
         nullable=False,
     )
+    payment_term_days: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=30, server_default="30"
+    )
+    credit_limit: Mapped[decimal.Decimal | None] = mapped_column(Numeric(18, 3), nullable=True)
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="KWD", server_default="KWD"
+    )
+    tax_profile: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    preferred_payment_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     tax_id: Mapped[str | None] = mapped_column(String(50), nullable=True)

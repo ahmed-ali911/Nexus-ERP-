@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import datetime
-import json
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ApprovalRequired, BusinessRuleViolation, NotFoundError
+from app.core.exceptions import ApprovalRequired, BusinessRuleViolation, NotFoundError  # noqa: F401
 from app.modules.master_data.models import Customer, PaymentTerms, Product
 from app.modules.master_data.service import get_conversion_factor
 from app.modules.organization.models import Branch, Warehouse
+from app.modules.shared.models import ApprovalRequestType, ApprovalStatus
+from app.modules.shared.service import (
+    _find_approval,
+    _require_approval,
+    approve_request,
+    get_approval_request,
+    list_approval_requests,
+    reject_request,
+)
 
 from . import models, schemas
 
@@ -284,139 +292,6 @@ def _lookup_price(
 
 
 # ---------------------------------------------------------------------------
-# ApprovalRequest helpers
-# ---------------------------------------------------------------------------
-
-
-def _find_approval(
-    db: Session,
-    request_type: models.ApprovalRequestType,
-    reference_type: str,
-    reference_id: int,
-    status: models.ApprovalStatus | None = None,
-) -> models.ApprovalRequest | None:
-    stmt = select(models.ApprovalRequest).where(
-        models.ApprovalRequest.request_type == request_type,
-        models.ApprovalRequest.reference_type == reference_type,
-        models.ApprovalRequest.reference_id == reference_id,
-    )
-    if status is not None:
-        stmt = stmt.where(models.ApprovalRequest.status == status)
-    return db.scalars(stmt.order_by(models.ApprovalRequest.id.desc())).first()
-
-
-def _require_approval(
-    db: Session,
-    company_id: int,
-    request_type: models.ApprovalRequestType,
-    reference_type: str,
-    reference_id: int,
-    requested_by: int | None,
-    detail: str,
-    metadata: dict | None = None,
-) -> None:
-    """Check for APPROVED approval; if not found, create PENDING and raise."""
-    approved = _find_approval(
-        db, request_type, reference_type, reference_id, models.ApprovalStatus.APPROVED
-    )
-    if approved is not None:
-        return  # previously approved — proceed
-
-    rejected = _find_approval(
-        db, request_type, reference_type, reference_id, models.ApprovalStatus.REJECTED
-    )
-    if rejected is not None:
-        raise BusinessRuleViolation(
-            f"Approval #{rejected.id} for this operation was rejected"
-        )
-
-    pending = _find_approval(
-        db, request_type, reference_type, reference_id, models.ApprovalStatus.PENDING
-    )
-    if pending is not None:
-        raise ApprovalRequired(pending.id, f"Approval #{pending.id} is pending: {detail}")
-
-    req = models.ApprovalRequest(
-        company_id=company_id,
-        request_type=request_type,
-        reference_type=reference_type,
-        reference_id=reference_id,
-        requested_by=requested_by,
-        approval_metadata=json.dumps(metadata) if metadata else None,
-    )
-    db.add(req)
-    db.flush()
-    raise ApprovalRequired(req.id, f"Approval #{req.id} created: {detail}")
-
-
-def approve_request(
-    db: Session,
-    approval_id: int,
-    company_id: int,
-    actor_id: int,
-) -> models.ApprovalRequest:
-    req = db.get(models.ApprovalRequest, approval_id)
-    if req is None or req.company_id != company_id:
-        raise NotFoundError(f"ApprovalRequest {approval_id} not found")
-    if req.status != models.ApprovalStatus.PENDING:
-        raise BusinessRuleViolation(f"ApprovalRequest {approval_id} is already {req.status}")
-    if req.requested_by == actor_id:
-        raise BusinessRuleViolation("The requester cannot approve their own request (maker-checker)")
-    req.status = models.ApprovalStatus.APPROVED
-    req.approved_by = actor_id
-    req.decided_at = datetime.datetime.now(datetime.UTC)
-    db.flush()
-    return req
-
-
-def reject_request(
-    db: Session,
-    approval_id: int,
-    company_id: int,
-    actor_id: int,
-    reason: str,
-) -> models.ApprovalRequest:
-    req = db.get(models.ApprovalRequest, approval_id)
-    if req is None or req.company_id != company_id:
-        raise NotFoundError(f"ApprovalRequest {approval_id} not found")
-    if req.status != models.ApprovalStatus.PENDING:
-        raise BusinessRuleViolation(f"ApprovalRequest {approval_id} is already {req.status}")
-    if req.requested_by == actor_id:
-        raise BusinessRuleViolation("The requester cannot reject their own request (maker-checker)")
-    req.status = models.ApprovalStatus.REJECTED
-    req.approved_by = actor_id
-    req.reason = reason
-    req.decided_at = datetime.datetime.now(datetime.UTC)
-    db.flush()
-    return req
-
-
-def get_approval_request(
-    db: Session, approval_id: int, company_id: int
-) -> models.ApprovalRequest:
-    req = db.get(models.ApprovalRequest, approval_id)
-    if req is None or req.company_id != company_id:
-        raise NotFoundError(f"ApprovalRequest {approval_id} not found")
-    return req
-
-
-def list_approval_requests(
-    db: Session,
-    company_id: int,
-    status: models.ApprovalStatus | None = None,
-    reference_type: str | None = None,
-) -> list[models.ApprovalRequest]:
-    stmt = select(models.ApprovalRequest).where(
-        models.ApprovalRequest.company_id == company_id
-    )
-    if status is not None:
-        stmt = stmt.where(models.ApprovalRequest.status == status)
-    if reference_type is not None:
-        stmt = stmt.where(models.ApprovalRequest.reference_type == reference_type)
-    return list(db.scalars(stmt.order_by(models.ApprovalRequest.id.desc())))
-
-
-# ---------------------------------------------------------------------------
 # Invoice validation helpers
 # ---------------------------------------------------------------------------
 
@@ -636,7 +511,7 @@ def post_invoice(
         _require_approval(
             db,
             company_id=company_id,
-            request_type=models.ApprovalRequestType.BACKDATED_INVOICE,
+            request_type=ApprovalRequestType.BACKDATED_INVOICE,
             reference_type="sales_invoice",
             reference_id=invoice_id,
             requested_by=actor_id,
@@ -654,7 +529,7 @@ def post_invoice(
             _require_approval(
                 db,
                 company_id=company_id,
-                request_type=models.ApprovalRequestType.MANUAL_PRICE,
+                request_type=ApprovalRequestType.MANUAL_PRICE,
                 reference_type="sales_invoice_line",
                 reference_id=line.id,
                 requested_by=actor_id,
@@ -675,7 +550,7 @@ def post_invoice(
                 _require_approval(
                     db,
                     company_id=company_id,
-                    request_type=models.ApprovalRequestType.DISCOUNT_OVERRIDE,
+                    request_type=ApprovalRequestType.DISCOUNT_OVERRIDE,
                     reference_type="sales_invoice_line",
                     reference_id=line.id,
                     requested_by=actor_id,
@@ -692,10 +567,10 @@ def post_invoice(
         # Stock availability
         neg_stock_approved = _find_approval(
             db,
-            models.ApprovalRequestType.NEGATIVE_STOCK,
+            ApprovalRequestType.NEGATIVE_STOCK,
             "sales_invoice_line",
             line.id,
-            models.ApprovalStatus.APPROVED,
+            ApprovalStatus.APPROVED,
         ) is not None
         if not (settings.allow_negative_stock_on_sale or neg_stock_approved):
             _check_stock_for_line(db, line, company_id, product)
@@ -707,7 +582,7 @@ def post_invoice(
             _require_approval(
                 db,
                 company_id=company_id,
-                request_type=models.ApprovalRequestType.CREDIT_LIMIT_OVERRIDE,
+                request_type=ApprovalRequestType.CREDIT_LIMIT_OVERRIDE,
                 reference_type="sales_invoice",
                 reference_id=invoice_id,
                 requested_by=actor_id,
@@ -726,10 +601,10 @@ def post_invoice(
     for line in lines:
         neg_stock_approved = _find_approval(
             db,
-            models.ApprovalRequestType.NEGATIVE_STOCK,
+            ApprovalRequestType.NEGATIVE_STOCK,
             "sales_invoice_line",
             line.id,
-            models.ApprovalStatus.APPROVED,
+            ApprovalStatus.APPROVED,
         ) is not None
 
         # Convert selling unit quantity to base unit for stock issue
@@ -865,7 +740,7 @@ def cancel_invoice(
     _require_approval(
         db,
         company_id=company_id,
-        request_type=models.ApprovalRequestType.CANCEL_AFTER_POST,
+        request_type=ApprovalRequestType.CANCEL_AFTER_POST,
         reference_type="sales_invoice",
         reference_id=invoice_id,
         requested_by=actor_id,
