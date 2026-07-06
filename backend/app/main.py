@@ -13,6 +13,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.master_data.router import router as master_data_router
 from app.modules.organization.router import router as organization_router
+from app.modules.accounting.router import router as accounting_router
 from app.modules.purchasing.router import router as purchasing_router
 from app.modules.sales.router import router as sales_router
 
@@ -62,3 +63,4 @@ app.include_router(master_data_router, prefix="/api/v1")
 app.include_router(inventory_router, prefix="/api/v1")
 app.include_router(sales_router, prefix="/api/v1")
 app.include_router(purchasing_router, prefix="/api/v1")
+app.include_router(accounting_router, prefix="/api/v1")

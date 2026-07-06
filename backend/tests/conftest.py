@@ -8,6 +8,7 @@ from app.modules.organization import models as org_models  # noqa: F401
 from app.modules.purchasing import models as purchasing_models  # noqa: F401
 from app.modules.sales import models as sales_models  # noqa: F401
 from app.modules.shared import models as shared_models  # noqa: F401
+from app.modules.accounting import models as accounting_models  # noqa: F401
 
 # All imports above register their tables on Base.metadata for create_all().
 
