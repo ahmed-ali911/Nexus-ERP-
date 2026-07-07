@@ -32,6 +32,17 @@ class AccountingSettingsResponse(BaseModel):
     require_manual_je_approval: bool
     allow_backdated_entries: bool
     coa_template_code: str | None
+    enable_auto_posting: bool
+    default_ar_account_code: str | None
+    default_cash_account_code: str | None
+    default_sales_revenue_account_code: str | None
+    default_tax_payable_account_code: str | None
+    default_inventory_account_code: str | None
+    default_cogs_account_code: str | None
+    default_ap_account_code: str | None
+    default_grn_accrual_account_code: str | None
+    default_inventory_adjustment_account_code: str | None
+    default_purchase_variance_account_code: str | None
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
@@ -41,6 +52,17 @@ class AccountingSettingsUpdate(BaseModel):
     default_currency: str | None = Field(default=None, max_length=3)
     require_manual_je_approval: bool | None = None
     allow_backdated_entries: bool | None = None
+    enable_auto_posting: bool | None = None
+    default_ar_account_code: str | None = Field(default=None, max_length=20)
+    default_cash_account_code: str | None = Field(default=None, max_length=20)
+    default_sales_revenue_account_code: str | None = Field(default=None, max_length=20)
+    default_tax_payable_account_code: str | None = Field(default=None, max_length=20)
+    default_inventory_account_code: str | None = Field(default=None, max_length=20)
+    default_cogs_account_code: str | None = Field(default=None, max_length=20)
+    default_ap_account_code: str | None = Field(default=None, max_length=20)
+    default_grn_accrual_account_code: str | None = Field(default=None, max_length=20)
+    default_inventory_adjustment_account_code: str | None = Field(default=None, max_length=20)
+    default_purchase_variance_account_code: str | None = Field(default=None, max_length=20)
 
 
 # ---------------------------------------------------------------------------

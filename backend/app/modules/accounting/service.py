@@ -1037,6 +1037,7 @@ class PostingEvent:
     idempotency_key: str
     source_document: str | None = None
     entry_type: EntryType = EntryType.STANDARD
+    source_module: SourceModule = SourceModule.SYSTEM
 
 
 @dataclass
@@ -1117,6 +1118,8 @@ class PostingService:
         result = []
         for tl in tlines:
             amount = self._resolve_amount(event.payload, tl.amount_source)
+            if amount == Decimal(0):
+                continue  # skip zero-amount lines (e.g. tax_amount=0 on tax-exempt doc)
             account_code = self._resolve_account_code(event.payload, tl)
             result.append({
                 "account_code": account_code,
@@ -1124,6 +1127,10 @@ class PostingService:
                 "amount": amount,
                 "sequence": tl.sequence,
             })
+        if not result:
+            raise BusinessRuleViolation(
+                f"Template '{event.event_type}' produced no non-zero lines"
+            )
         return result
 
     def _resolve_amount(self, payload: dict, amount_source: str) -> Decimal:
@@ -1218,7 +1225,7 @@ class PostingService:
             entry_number=entry_number,
             entry_date=event.entry_date,
             period_id=period.id,
-            source_module=SourceModule.SYSTEM,
+            source_module=event.source_module,
             entry_type=event.entry_type,
             source_document=event.source_document,
             description=f"Auto-posted: {event.event_type}",
@@ -1243,6 +1250,64 @@ class PostingService:
             ))
         db.flush()
         return je
+
+
+def get_default_accounts(db: Session, company_id: int) -> dict[str, str] | None:
+    """Return company default account codes, or None when auto-posting is disabled.
+
+    Returns None  → auto-posting is off; callers must skip all posting logic.
+    Returns dict  → auto-posting is on and all defaults are configured.
+    Raises BusinessRuleViolation if auto-posting is on but a required default is
+    missing (operator error — must be fixed before operations can flow).
+
+    Extension point: product/category-specific overrides can replace individual
+    values before the caller passes them to the EventPublisher (future feature).
+    """
+    settings = get_or_create_settings(db, company_id)
+    if not settings.enable_auto_posting:
+        return None
+    mapping: dict[str, str | None] = {
+        "ar":                   settings.default_ar_account_code,
+        "cash":                 settings.default_cash_account_code,
+        "sales_revenue":        settings.default_sales_revenue_account_code,
+        "tax_payable":          settings.default_tax_payable_account_code,
+        "inventory":            settings.default_inventory_account_code,
+        "cogs":                 settings.default_cogs_account_code,
+        "ap":                   settings.default_ap_account_code,
+        "grn_accrual":          settings.default_grn_accrual_account_code,
+        "inventory_adjustment": settings.default_inventory_adjustment_account_code,
+        "purchase_variance":    settings.default_purchase_variance_account_code,
+    }
+    missing = [k for k, v in mapping.items() if v is None]
+    if missing:
+        raise BusinessRuleViolation(
+            f"Accounting default accounts not configured: {', '.join(missing)}. "
+            "Set them in Accounting Settings before posting."
+        )
+    return mapping  # type: ignore[return-value]
+
+
+def find_and_reverse_je(
+    db: Session,
+    idempotency_key: str,
+    reversal_date: datetime.date,
+    company_id: int,
+    actor_id: int | None,
+) -> JournalEntry | None:
+    """Find a POSTED JE by idempotency key and reverse it.
+
+    Returns None if no matching POSTED JE exists — safe to call even when the
+    original posting was skipped (e.g. cogs_total was zero, or auto_posting was
+    disabled at the time).
+    """
+    je = (
+        db.query(JournalEntry)
+        .filter_by(idempotency_key=idempotency_key, company_id=company_id)
+        .first()
+    )
+    if je is None or je.status != JournalEntryStatus.POSTED:
+        return None
+    return reverse_journal_entry(db, je.id, reversal_date, company_id, actor_id)
 
 
 # Module-level singleton (synchronous interface; swap call site for async)

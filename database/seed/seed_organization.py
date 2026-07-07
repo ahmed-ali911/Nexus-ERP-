@@ -7,6 +7,7 @@ Run inside the backend container:
 """
 
 from app.core.database import SessionLocal
+from app.modules.auth import models as _auth_models  # noqa: F401 — registers users table
 from app.modules.organization import schemas, service
 from app.modules.organization.models import BranchType, Company, WarehouseType
 

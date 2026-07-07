@@ -112,6 +112,25 @@ class AccountingSettings(Base, CompanyScopedMixin, TimestampMixin, AuditMixin):
     )
     coa_template_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
+    # Auto-posting toggle.  False = skip accounting entries (accounting not yet
+    # configured for this company).  True = posting is ATOMIC with the business op.
+    enable_auto_posting: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    # Company-level default account codes.  Resolution order:
+    #   1. Product / category-specific account (future extension hook — not built yet)
+    #   2. These company defaults (MVP)
+    default_ar_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_cash_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_sales_revenue_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_tax_payable_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_inventory_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_cogs_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_ap_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_grn_accrual_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_inventory_adjustment_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_purchase_variance_account_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
 
 # ---------------------------------------------------------------------------
 # CostCenter

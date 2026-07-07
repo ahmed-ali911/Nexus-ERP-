@@ -598,6 +598,7 @@ def post_invoice(
             )
 
     # ── EXECUTION PASS (all checks passed) ────────────────────────────────
+    issue_movements = []
     for line in lines:
         neg_stock_approved = _find_approval(
             db,
@@ -625,7 +626,51 @@ def post_invoice(
             actor_id=actor_id,
         )
         line.stock_movement_id = mv.id
+        issue_movements.append(mv)
         db.flush()
+
+    # ── ACCOUNTING (atomic with stock + invoice status) ────────────────────
+    from app.modules.accounting.integration import (
+        PostingEvent, SourceModule, event_publisher, get_default_accounts,
+    )
+    defaults = get_default_accounts(db, company_id)
+    if defaults is not None:
+        ar_acct = defaults["cash"] if invoice.payment_terms_type == "CASH" else defaults["ar"]
+        # issue movements carry negative quantity (stock leaving); negate for COGS
+        cogs_total = sum(-mv.quantity * mv.unit_cost for mv in issue_movements)
+
+        event_publisher.publish(db, PostingEvent(
+            event_type="SALES_INVOICE_POSTED",
+            source_module=SourceModule.SALES,
+            payload={
+                "ar_account":      ar_acct,
+                "revenue_account": defaults["sales_revenue"],
+                "tax_account":     defaults["tax_payable"],
+                "gross_amount":    str(invoice.grand_total),
+                "net_amount":      str(invoice.subtotal),
+                "tax_amount":      str(invoice.total_tax),
+            },
+            entry_date=invoice.invoice_date,
+            company_id=company_id,
+            actor_id=actor_id,
+            idempotency_key=f"sale_invoice_{invoice_id}_revenue",
+            source_document=invoice.invoice_number,
+        ))
+        if cogs_total > 0:
+            event_publisher.publish(db, PostingEvent(
+                event_type="SALES_INVOICE_COGS",
+                source_module=SourceModule.SALES,
+                payload={
+                    "cogs_account":      defaults["cogs"],
+                    "inventory_account": defaults["inventory"],
+                    "cogs_total":        str(cogs_total),
+                },
+                entry_date=invoice.invoice_date,
+                company_id=company_id,
+                actor_id=actor_id,
+                idempotency_key=f"sale_invoice_{invoice_id}_cogs",
+                source_document=invoice.invoice_number,
+            ))
 
     term_days = _resolve_term_days(customer)
     invoice.due_date = posted_date + datetime.timedelta(days=term_days)
@@ -759,6 +804,12 @@ def cancel_invoice(
                 actor_id=actor_id,
                 notes=f"Cancellation of invoice {invoice.invoice_number}",
             )
+
+    # Reverse accounting entries in the same transaction
+    from app.modules.accounting.integration import event_publisher as _ep
+    _today = datetime.date.today()
+    _ep.reverse_document(db, f"sale_invoice_{invoice_id}_revenue", _today, company_id, actor_id)
+    _ep.reverse_document(db, f"sale_invoice_{invoice_id}_cogs",    _today, company_id, actor_id)
 
     invoice.status = models.InvoiceStatus.CANCELLED
     invoice.updated_by = actor_id
@@ -915,11 +966,21 @@ def post_credit_note(
     if not lines:
         raise BusinessRuleViolation("Credit note has no lines")
 
+    return_movements = []
     for line in lines:
         orig_line = db.get(models.SalesInvoiceLine, line.original_line_id)
         product = _get_product(db, line.product_id, company_id)
 
         base_qty = _to_base_qty_cn(db, company_id, line, product)
+
+        # Use the original issue movement's unit_cost (WAC at time of sale) so
+        # the COGS reversal and inventory re-entry are at cost, not selling price.
+        from app.modules.inventory.models import StockMovement as _StockMovement
+        orig_mv = (
+            db.get(_StockMovement, orig_line.stock_movement_id)
+            if orig_line.stock_movement_id else None
+        )
+        return_cost_per_unit = orig_mv.unit_cost if orig_mv is not None else Decimal("0")
 
         mv = inv_service.receive_stock(
             db,
@@ -928,14 +989,55 @@ def post_credit_note(
                 product_id=orig_line.product_id,
                 batch_id=orig_line.batch_id,
                 quantity=base_qty,
-                unit_cost=orig_line.unit_price,
+                unit_cost=return_cost_per_unit,
                 notes=f"Return: credit note {cn.credit_note_number}",
             ),
             company_id=company_id,
             actor_id=actor_id,
         )
         line.stock_movement_id = mv.id
+        return_movements.append(mv)
         db.flush()
+
+    # Accounting: revenue reversal + COGS reversal at original sale cost
+    from app.modules.accounting.integration import (
+        PostingEvent, SourceModule, event_publisher, get_default_accounts,
+    )
+    defaults = get_default_accounts(db, company_id)
+    if defaults is not None:
+        return_cost = sum(mv.quantity * mv.unit_cost for mv in return_movements)
+        event_publisher.publish(db, PostingEvent(
+            event_type="SALES_CREDIT_NOTE_POSTED",
+            source_module=SourceModule.SALES,
+            payload={
+                "revenue_account":  defaults["sales_revenue"],
+                "tax_account":      defaults["tax_payable"],
+                "ar_account":       defaults["ar"],
+                "gross_amount":     str(cn.total),
+                "net_amount":       str(cn.subtotal),
+                "tax_amount":       str(cn.total_tax),
+            },
+            entry_date=cn.credit_note_date,
+            company_id=company_id,
+            actor_id=actor_id,
+            idempotency_key=f"sale_cn_{cn_id}_revenue",
+            source_document=cn.credit_note_number,
+        ))
+        if return_cost > 0:
+            event_publisher.publish(db, PostingEvent(
+                event_type="SALES_CREDIT_NOTE_COGS",
+                source_module=SourceModule.SALES,
+                payload={
+                    "inventory_account": defaults["inventory"],
+                    "cogs_account":      defaults["cogs"],
+                    "return_cost":       str(return_cost),
+                },
+                entry_date=cn.credit_note_date,
+                company_id=company_id,
+                actor_id=actor_id,
+                idempotency_key=f"sale_cn_{cn_id}_cogs",
+                source_document=cn.credit_note_number,
+            ))
 
     cn.status = models.CreditNoteStatus.POSTED
     cn.updated_by = actor_id
@@ -1053,6 +1155,26 @@ def post_collection(
         _auto_allocate(db, col, actor_id)
     else:
         _apply_manual_allocations(db, col, actor_id)
+
+    from app.modules.accounting.integration import (
+        PostingEvent, SourceModule, event_publisher, get_default_accounts,
+    )
+    defaults = get_default_accounts(db, company_id)
+    if defaults is not None:
+        event_publisher.publish(db, PostingEvent(
+            event_type="COLLECTION_POSTED",
+            source_module=SourceModule.SALES,
+            payload={
+                "cash_account": defaults["cash"],
+                "ar_account":   defaults["ar"],
+                "total_amount": str(col.total_amount),
+            },
+            entry_date=col.collection_date,
+            company_id=company_id,
+            actor_id=actor_id,
+            idempotency_key=f"sale_collection_{collection_id}",
+            source_document=col.collection_number,
+        ))
 
     col.status = models.CollectionStatus.POSTED
     col.updated_by = actor_id

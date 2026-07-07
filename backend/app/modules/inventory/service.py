@@ -445,6 +445,44 @@ def adjust_stock(
         unit_cost=unit_cost,
         settings=settings,
     )
+
+    # Accounting: DR/CR Inventory vs Adjustment account (atomic with stock movement)
+    import datetime as _dt
+    from app.modules.accounting.integration import (
+        PostingEvent, SourceModule, event_publisher, get_default_accounts,
+    )
+    defaults = get_default_accounts(db, company_id)
+    if defaults is not None:
+        adj_cost = movement.quantity * movement.unit_cost  # positive for IN, negative for OUT
+        if adj_cost > 0:
+            event_publisher.publish(db, PostingEvent(
+                event_type="INVENTORY_ADJUSTMENT_IN",
+                source_module=SourceModule.INVENTORY,
+                payload={
+                    "inventory_account":  defaults["inventory"],
+                    "adjustment_account": defaults["inventory_adjustment"],
+                    "adjustment_cost":    str(adj_cost),
+                },
+                entry_date=_dt.date.today(),
+                company_id=company_id,
+                actor_id=actor_id,
+                idempotency_key=f"inv_adjustment_{movement.id}",
+            ))
+        elif adj_cost < 0:
+            event_publisher.publish(db, PostingEvent(
+                event_type="INVENTORY_ADJUSTMENT_OUT",
+                source_module=SourceModule.INVENTORY,
+                payload={
+                    "adjustment_account": defaults["inventory_adjustment"],
+                    "inventory_account":  defaults["inventory"],
+                    "adjustment_cost":    str(-adj_cost),  # positive amount
+                },
+                entry_date=_dt.date.today(),
+                company_id=company_id,
+                actor_id=actor_id,
+                idempotency_key=f"inv_adjustment_{movement.id}",
+            ))
+
     return movement
 
 

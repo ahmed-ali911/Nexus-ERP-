@@ -82,7 +82,18 @@ def _get_branch(db, company_id) -> Branch:
 
 
 def _get_warehouse(db, branch_id) -> Warehouse:
+    # Try the given branch first; fall back to any warehouse in the company's branches
     wh = db.query(Warehouse).filter_by(branch_id=branch_id, is_deleted=False).first()
+    if wh is not None:
+        return wh
+    # Warehouses may belong to a different branch (e.g. Qurain) than the first branch
+    branch = db.get(Branch, branch_id)
+    wh = (
+        db.query(Warehouse)
+        .join(Branch, Warehouse.branch_id == Branch.id)
+        .filter(Branch.company_id == branch.company_id, Warehouse.is_deleted.is_(False))
+        .first()
+    )
     if wh is None:
         raise RuntimeError("No warehouse found. Run seed_organization.py first.")
     return wh

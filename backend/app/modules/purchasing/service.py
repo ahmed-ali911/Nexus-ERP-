@@ -571,6 +571,7 @@ def post_grn(
                     )
 
     # ── EXECUTION PASS ────────────────────────────────────────────────────
+    receipt_movements = []
     for line in lines:
         product = _get_product(db, line.product_id, company_id)
 
@@ -608,6 +609,7 @@ def post_grn(
             actor_id=actor_id,
         )
         line.stock_movement_id = mv.id
+        receipt_movements.append(mv)
         db.flush()
 
         if line.po_line_id is not None:
@@ -616,6 +618,29 @@ def post_grn(
                 po_line.quantity_received += line.quantity_received
                 db.flush()
                 _update_po_status(db, po_line.po_id)
+
+    # Accounting: DR Inventory, CR GRN Accrual (atomic with stock receipt)
+    from app.modules.accounting.integration import (
+        PostingEvent, SourceModule, event_publisher, get_default_accounts,
+    )
+    defaults = get_default_accounts(db, company_id)
+    if defaults is not None:
+        receipt_cost = sum(mv.quantity * mv.unit_cost for mv in receipt_movements)
+        if receipt_cost > 0:
+            event_publisher.publish(db, PostingEvent(
+                event_type="PURCHASE_GRN_POSTED",
+                source_module=SourceModule.PURCHASING,
+                payload={
+                    "inventory_account":   defaults["inventory"],
+                    "grn_accrual_account": defaults["grn_accrual"],
+                    "receipt_cost":        str(receipt_cost),
+                },
+                entry_date=grn.receipt_date,
+                company_id=company_id,
+                actor_id=actor_id,
+                idempotency_key=f"purchase_grn_{grn_id}_receipt",
+                source_document=grn.grn_number,
+            ))
 
     grn.status = models.GRNStatus.POSTED
     grn.updated_by = actor_id
@@ -665,6 +690,13 @@ def cancel_grn(
                 actor_id=actor_id,
                 notes=f"Cancellation of GRN {grn.grn_number}",
             )
+
+    # Reverse the GRN accounting entry atomically
+    import datetime as _dt
+    from app.modules.accounting.integration import event_publisher as _ep
+    _ep.reverse_document(
+        db, f"purchase_grn_{grn_id}_receipt", _dt.date.today(), company_id, actor_id
+    )
 
     grn.status = models.GRNStatus.CANCELLED
     grn.updated_by = actor_id
@@ -816,6 +848,27 @@ def post_supplier_invoice(
     bill.posted_at = datetime.datetime.now(datetime.UTC)
     bill.updated_by = actor_id
     db.flush()
+
+    # Accounting: DR GRN Accrual, CR AP (clears receipt accrual against the bill)
+    from app.modules.accounting.integration import (
+        PostingEvent, SourceModule, event_publisher, get_default_accounts,
+    )
+    defaults = get_default_accounts(db, company_id)
+    if defaults is not None:
+        event_publisher.publish(db, PostingEvent(
+            event_type="SUPPLIER_INVOICE_POSTED",
+            source_module=SourceModule.PURCHASING,
+            payload={
+                "grn_accrual_account": defaults["grn_accrual"],
+                "ap_account":          defaults["ap"],
+                "total_amount":        str(bill.grand_total),
+            },
+            entry_date=bill.bill_date,
+            company_id=company_id,
+            actor_id=actor_id,
+            idempotency_key=f"purchase_bill_{bill_id}",
+            source_document=bill.bill_number,
+        ))
     return bill
 
 
@@ -849,6 +902,13 @@ def cancel_supplier_invoice(
         requested_by=actor_id,
         detail=f"Cancel posted bill {bill.bill_number}",
         metadata={"reason": reason, "bill_number": bill.bill_number},
+    )
+
+    # Reverse the bill accounting entry atomically
+    import datetime as _dt
+    from app.modules.accounting.integration import event_publisher as _ep
+    _ep.reverse_document(
+        db, f"purchase_bill_{bill_id}", _dt.date.today(), company_id, actor_id
     )
 
     bill.status = models.BillStatus.CANCELLED
@@ -990,7 +1050,8 @@ def post_purchase_return(
         metadata={"return_number": ret.return_number},
     )
 
-    # Approval granted — issue stock back
+    # Approval granted — issue stock back to supplier
+    return_movements = []
     for line in lines:
         grn_line = db.get(models.GoodsReceiptLine, line.original_grn_line_id)
         product = _get_product(db, grn_line.product_id, company_id)
@@ -1012,7 +1073,33 @@ def post_purchase_return(
             actor_id=actor_id,
         )
         line.stock_movement_id = mv.id
+        return_movements.append(mv)
         db.flush()
+
+    # Accounting: DR GRN Accrual, CR Inventory (at cost stock left at)
+    from app.modules.accounting.integration import (
+        PostingEvent, SourceModule, event_publisher, get_default_accounts,
+    )
+    import datetime as _dt
+    defaults = get_default_accounts(db, company_id)
+    if defaults is not None:
+        # issue movements carry negative quantity; negate to get a positive cost
+        return_cost = sum(-mv.quantity * mv.unit_cost for mv in return_movements)
+        if return_cost > 0:
+            event_publisher.publish(db, PostingEvent(
+                event_type="PURCHASE_RETURN_POSTED",
+                source_module=SourceModule.PURCHASING,
+                payload={
+                    "grn_accrual_account": defaults["grn_accrual"],
+                    "inventory_account":   defaults["inventory"],
+                    "return_cost":         str(return_cost),
+                },
+                entry_date=ret.return_date,
+                company_id=company_id,
+                actor_id=actor_id,
+                idempotency_key=f"purchase_return_{return_id}",
+                source_document=ret.return_number,
+            ))
 
     ret.status = models.ReturnStatus.POSTED
     ret.updated_by = actor_id
@@ -1117,6 +1204,27 @@ def post_supplier_payment(
         _auto_allocate_payment(db, payment, actor_id)
     else:
         _apply_manual_payment_allocations(db, payment, actor_id)
+
+    # Accounting: DR AP, CR Cash
+    from app.modules.accounting.integration import (
+        PostingEvent, SourceModule, event_publisher, get_default_accounts,
+    )
+    defaults = get_default_accounts(db, company_id)
+    if defaults is not None:
+        event_publisher.publish(db, PostingEvent(
+            event_type="SUPPLIER_PAYMENT_POSTED",
+            source_module=SourceModule.PURCHASING,
+            payload={
+                "ap_account":   defaults["ap"],
+                "cash_account": defaults["cash"],
+                "total_amount": str(payment.total_amount),
+            },
+            entry_date=payment.payment_date,
+            company_id=company_id,
+            actor_id=actor_id,
+            idempotency_key=f"purchase_payment_{payment_id}",
+            source_document=payment.payment_number,
+        ))
 
     payment.status = models.PaymentStatus.POSTED
     payment.updated_by = actor_id
@@ -1224,6 +1332,13 @@ def cancel_supplier_payment(
                     bill.status = models.BillStatus.POSTED
                 bill.updated_by = actor_id
                 db.flush()
+
+        # Reverse payment accounting entry atomically
+        import datetime as _dt
+        from app.modules.accounting.integration import event_publisher as _ep
+        _ep.reverse_document(
+            db, f"purchase_payment_{payment_id}", _dt.date.today(), company_id, actor_id
+        )
 
     payment.status = models.PaymentStatus.CANCELLED
     payment.updated_by = actor_id
