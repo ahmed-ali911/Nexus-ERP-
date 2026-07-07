@@ -21,14 +21,22 @@ from app.modules.sales import models as _sal  # noqa: F401
 from app.modules.shared import models as _sh  # noqa: F401
 from app.modules.accounting import models as _acc  # noqa: F401
 
+import datetime
+from decimal import Decimal
+
 from app.core.database import SessionLocal
+from app.modules.accounting import schemas as acc_schemas
+from app.modules.accounting import service as acc_service
 from app.modules.accounting.models import (
+    Account,
     AccountSelectorType,
     AccountingSettings,
+    JournalEntry,
     PostingTemplateHeader,
     PostingTemplateLine,
 )
-from app.modules.organization.models import Company
+from app.modules.inventory.models import StockMovement
+from app.modules.organization.models import Branch, Company, Warehouse
 
 COMPANY_CODE = "SL"
 
@@ -202,6 +210,94 @@ def _set_sham_land_defaults(db, company_id: int) -> None:
         print("  AccountingSettings already fully configured — skipped.")
 
 
+def _post_opening_inventory_balance(db, company_id: int) -> None:
+    """Post DR Inventory / CR Retained Earnings for stock received before auto-posting.
+
+    Mirrors the real go-live practice of posting opening-balance JEs for historical
+    inventory so that GL 1150 == physical stock value from day one.
+
+    Idempotent: skips if idempotency key already exists.
+    """
+    IDEM_KEY = "SHAM-OPENING-INVENTORY-BALANCE"
+    if db.query(JournalEntry).filter_by(company_id=company_id, idempotency_key=IDEM_KEY).first():
+        print("  Opening inventory JE already posted — skipped.")
+        return
+
+    # Sum value of every stock movement that predates auto-posting.  We identify
+    # these as movements whose quantity×unit_cost were never mirrored by a JE on
+    # account 1150 — concretely all RECEIPT / TRANSFER movements from the inventory
+    # seed.  The safest approach: sum ALL movements for the company, then subtract
+    # the net already captured by existing JEs on account 1150; the difference is
+    # the unrecorded historical amount.
+    inv_acct = db.query(Account).filter_by(company_id=company_id, code="1150", is_deleted=False).first()
+    ret_acct = db.query(Account).filter_by(company_id=company_id, code="3030", is_deleted=False).first()
+    if inv_acct is None or ret_acct is None:
+        print("  ERROR: accounts 1150 or 3030 not found — run seed_sham_land_accounting first.")
+        return
+
+    # Physical total: sum(quantity × unit_cost) across all stock movements
+    from sqlalchemy import func, select
+    wh_ids_sq = (
+        select(Warehouse.id)
+        .join(Branch, Warehouse.branch_id == Branch.id)
+        .where(Branch.company_id == company_id, Warehouse.is_deleted.is_(False))
+        .scalar_subquery()
+    )
+    physical_row = (
+        db.query(func.coalesce(func.sum(StockMovement.total_cost), 0))
+        .filter(
+            StockMovement.company_id == company_id,
+            StockMovement.warehouse_id.in_(wh_ids_sq),
+        )
+        .scalar()
+    )
+    physical_total = Decimal(str(physical_row))
+
+    # GL already captured on 1150
+    from app.modules.accounting.models import JournalEntryLine, JournalEntryStatus
+    gl_row = (
+        db.query(
+            func.coalesce(func.sum(JournalEntryLine.debit), 0).label("dr"),
+            func.coalesce(func.sum(JournalEntryLine.credit), 0).label("cr"),
+        )
+        .join(JournalEntry, JournalEntryLine.entry_id == JournalEntry.id)
+        .filter(
+            JournalEntry.company_id == company_id,
+            JournalEntry.status == JournalEntryStatus.POSTED,
+            JournalEntryLine.account_id == inv_acct.id,
+        )
+        .one()
+    )
+    gl_current = Decimal(str(gl_row.dr)) - Decimal(str(gl_row.cr))
+
+    gap = physical_total - gl_current
+    if abs(gap) < Decimal("0.001"):
+        print(f"  No opening inventory gap (physical {physical_total:.3f} == GL {gl_current:.3f}) — skipped.")
+        return
+
+    print(f"  Physical stock total  : {physical_total:.3f}")
+    print(f"  GL 1150 already posted: {gl_current:.3f}")
+    print(f"  Opening balance gap   : {gap:.3f}  (DR Inventory  CR Retained Earnings)")
+
+    je = acc_service.create_journal_entry(
+        db,
+        acc_schemas.JournalEntryCreate(
+            entry_date=datetime.date(2026, 1, 1),
+            description="Opening inventory balance — historical stock pre-dating auto-posting go-live",
+            entry_type="OPENING",
+            idempotency_key=IDEM_KEY,
+            lines=[
+                acc_schemas.JournalEntryLineCreate(account_id=inv_acct.id, debit=gap),
+                acc_schemas.JournalEntryLineCreate(account_id=ret_acct.id, credit=gap),
+            ],
+        ),
+        company_id=company_id,
+        actor_id=None,
+    )
+    acc_service.post_journal_entry(db, je.id, company_id, actor_id=None)
+    print(f"  Posted opening inventory JE ({je.entry_number})  DR 1150 {gap:.3f} / CR 3030 {gap:.3f}")
+
+
 def main() -> None:
     db = SessionLocal()
     try:
@@ -214,6 +310,8 @@ def main() -> None:
         else:
             print(f"Setting default accounts for '{co.name_en}' (id={co.id}) ...")
             _set_sham_land_defaults(db, co.id)
+            print(f"Posting opening inventory balance for '{co.name_en}' ...")
+            _post_opening_inventory_balance(db, co.id)
 
         db.commit()
         print("Done.")
