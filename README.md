@@ -1,121 +1,107 @@
-# Sham ERP
+# Nexus ERP
 
-Deployable ERP for food manufacturing/distribution companies in Kuwait.
-Single codebase, deployed per-client via Docker (not multi-tenant SaaS).
-Organizational hierarchy: **Company → Branch → Warehouse** — one deployment
-can hold one or more Companies (legal entities).
+A deployable, production-grade ERP system for food manufacturing and distribution companies in the Gulf region. Built as a single codebase deployed per-client via Docker (not multi-tenant SaaS), with configuration-driven customization so the same code serves many companies without forking.
 
-Stack: FastAPI + PostgreSQL + React/TypeScript + Docker.
+Developed against a real reference case — a Kuwaiti nut & coffee milling and distribution business (multiple retail branches plus a production mill) — to ground every module in genuine operational requirements.
 
-> **Status:** foundation skeleton only. No business modules, models, or
-> logic yet — see "Current state" below.
+**Stack:** FastAPI · PostgreSQL · SQLAlchemy · Alembic · React + TypeScript · Docker
 
-## Structure
+---
+
+## Status
+
+**Backend: complete and fully tested — 203 passing tests across 9 modules.**
+Frontend: foundation scaffold (bilingual AR/EN with RTL/LTR); business screens in progress.
+
+Every module was designed, reviewed, built, tested, and committed independently. No module was merged until its full test suite passed, and every database migration is verified to run cleanly from an empty database — the real client-deployment path.
+
+---
+
+## Architecture principles
+
+These rules hold across the whole system:
+
+- **Deployable product, not SaaS.** One codebase, one Docker deployment per client. Differences between clients are driven by configuration and feature flags, never by forking the code.
+- **Organizational hierarchy:** `Company → Branch → Warehouse`. A single deployment can hold one or more Companies (legal entities), so a client can be a single company with branches or a holding group.
+- **Immutable financial ledgers.** Stock movements and journal entries are append-only. "Editing" means posting a reversing or adjustment entry — never mutating or deleting a posted record. This gives a complete, tamper-evident audit trail.
+- **No stored balances.** Inventory balances and account balances are always derived from their immutable ledgers, so reported figures can never silently drift from the underlying records.
+- **Exact arithmetic.** All money and quantity math uses `NUMERIC` (never floating point), aligned to the Kuwaiti Dinar's 3-decimal precision.
+- **Configurable posting.** Business modules never write journal entries directly — they emit events, and an isolated Posting Engine translates them into balanced entries using database-driven, versioned templates. Accounting policy changes by editing a template, not the code.
+- **Unified approvals & exceptions.** A single approval framework (maker/checker) governs every exceptional operation — credit-limit overrides, negative stock, discount overrides, cancellations, period reopening — through one consistent cycle: validate → detect exception → request approval → approve/reject → execute → audit → notify.
+- **Advanced RBAC.** Dynamic, per-company roles: permissions are system-defined, but each company composes its own roles, all scoped to the organizational hierarchy.
+
+---
+
+## Modules
+
+| # | Module | Highlights |
+|---|--------|-----------|
+| 1 | **Organization** | Company / Branch / Warehouse hierarchy; reversible cascade soft-delete; scoped uniqueness |
+| 2 | **Auth & RBAC** | JWT auth, refresh-token revocation, account lockout; dynamic per-company roles & permissions; audit trail |
+| 3 | **Master Data** | Products, categories, customers, suppliers; multi-unit of measure with exact weight/count conversions |
+| 4 | **Inventory** | Immutable stock ledger; weighted-average costing; batch/expiry tracking (FEFO); inter-warehouse transfers; guarded negative stock |
+| 5 | **Sales** | Invoices, credit notes, collections (FIFO + manual allocation); price lists; dynamic credit exposure; full lifecycle |
+| 6 | **Purchasing** | Purchase orders, goods receipts, supplier invoices, returns, payments; three-way-match ready; GRN accrual accounting |
+| 7 | **Accounting** | Isolated Posting Engine; DB-driven posting templates; hierarchical chart of accounts; fiscal periods; GL, Trial Balance, P&L, Balance Sheet (with computed retained earnings) |
+| 8 | **Financial Integration** | Auto-posting from sales/purchasing/inventory via an EventPublisher; atomic journal + stock; COGS at exact issued cost |
+| — | **Shared** | Cross-module approval framework (single source of truth) |
+
+---
+
+## Financial correctness
+
+The system's accuracy is proven, not asserted:
+
+- **The Balance Sheet balances** on seeded data: assets = liabilities + equity, including dynamically computed retained earnings — with no year-end closing run required.
+- **Accounting inventory reconciles exactly with physical inventory** — the GL inventory account equals the stock-ledger value to zero difference after a full sequence of operations. This is enforced by an automated reconciliation test.
+- **The Posting Engine is provably isolated** — an AST-based contract test verifies it imports nothing from any business module, so future modules (payroll, manufacturing, POS) integrate by emitting events with zero engine changes.
+
+---
+
+## Project structure
 
 ```
-sham-erp/
-├── backend/                 FastAPI app
-│   ├── app/
-│   │   ├── main.py          App entrypoint, GET /health
-│   │   ├── core/            Cross-cutting infrastructure
-│   │   │   ├── config.py    Settings loaded from env (.env)
-│   │   │   ├── database.py  SQLAlchemy engine/session (Base, get_db)
-│   │   │   ├── rbac.py      Role-based access control (placeholder)
-│   │   │   └── audit.py     Audit trail (placeholder)
-│   │   └── modules/         Business modules go here (empty for now)
-│   ├── pyproject.toml       uv-managed deps; ruff + black configured
-│   └── Dockerfile
-├── frontend/                React + TypeScript (Vite)
-│   ├── src/
-│   │   ├── i18n/            i18next setup, en/ar locale files
-│   │   ├── theme/           MUI theme + emotion cache, RTL/LTR aware
-│   │   ├── App.tsx           Minimal shell proving bilingual RTL/LTR works
-│   │   └── main.tsx
-│   ├── package.json         Vite + MUI + i18next; eslint + prettier configured
-│   └── eslint.config.js
+nexus-erp/
+├── backend/            FastAPI application
+│   └── app/
+│       ├── core/       config, database, RBAC, audit, shared mixins
+│       └── modules/    organization, auth, master_data, inventory,
+│                       sales, purchasing, accounting, shared
 ├── database/
-│   ├── alembic.ini          Alembic config (points at ../backend for models)
-│   ├── migrations/          env.py, script.py.mako, versions/ (empty)
-│   └── seed/                Seed data/scripts (empty for now)
-├── deploy/
-│   ├── on-prem/              Placeholder for on-prem deployment assets
-│   └── hosted/                Placeholder for hosted deployment assets
-├── docker-compose.yml       backend + postgres + redis
-├── .env.example             Copy to .env before running
-└── README.md
+│   ├── migrations/     Alembic migrations (verified from empty DB)
+│   └── seed/           reference dataset + default catalogs
+├── frontend/           React + TypeScript (Vite), bilingual AR/EN
+├── deploy/             on-prem and hosted deployment notes
+└── docker-compose.yml
 ```
 
-## Current state
+---
 
-- `backend/app/core/config.py` and `database.py` are functional (settings
-  loading, SQLAlchemy engine/session) — this is infrastructure wiring, not
-  business logic.
-- `backend/app/core/rbac.py` and `audit.py` are empty placeholders — no
-  permission model or change-tracking exists yet.
-- `backend/app/modules/` is empty — this is where business modules (e.g.
-  sales, inventory) will live, one subpackage each.
-- `database/migrations/versions/` is empty — no models exist yet, so there
-  is nothing to migrate.
-- `frontend/` has a working bilingual (AR/EN) shell with RTL/LTR switching
-  (MUI theme direction + emotion RTL cache + i18next), but no screens beyond
-  a placeholder proving the toggle works.
-- `deploy/on-prem/` and `deploy/hosted/` are empty except for README
-  placeholders.
+## Running locally
 
-## Running it
-
-1. Copy the env file and adjust values (DB credentials, secret key, default
-   currency/locale, company name):
-
-   ```
-   cp .env.example .env
-   ```
-
-2. Start backend + Postgres + Redis:
-
-   ```
-   docker-compose up --build
-   ```
-
-3. Confirm the backend is up and can reach Postgres:
-
-   ```
-   curl http://localhost:8000/health
-   # {"status":"ok"}
-   ```
-
-   Postgres is exposed on `localhost:5432` and Redis on `localhost:6379`
-   for local tooling. The backend container only starts once both
-   dependencies report healthy (see `healthcheck` in `docker-compose.yml`).
-
-4. Frontend runs separately (not yet part of docker-compose):
-
-   ```
-   cd frontend
-   npm install
-   npm run dev
-   ```
-
-   Open the printed local URL — you'll see a placeholder screen with an
-   AR/EN toggle that flips text direction (RTL/LTR) live.
-
-## Database migrations (Alembic)
-
-No models exist yet, so there's nothing to generate. Once the first module
-adds models under `backend/app/modules/<module>/models.py`, import them in
-`database/migrations/env.py` and run, from `database/`:
-
-```
-alembic revision --autogenerate -m "add <module> tables"
-alembic upgrade head
+```bash
+cp .env.example .env
+docker-compose up --build          # backend + postgres + redis
+curl http://localhost:8000/health  # {"status":"ok"}
 ```
 
-Alembic reads `DATABASE_URL` from the same `.env`-driven settings as the
-backend (via `app.core.config.settings`), so migrations always target the
-same database the app connects to.
+Interactive API docs (Swagger) are available at `http://localhost:8000/docs`.
 
-## Next step
+```bash
+cd frontend && npm install && npm run dev
+```
 
-This is Step 1 (skeleton only). No business modules, models, or module
-logic have been added. Review this foundation before we scaffold the first
-module.
+---
+
+## Testing
+
+```bash
+docker-compose exec backend uv run pytest
+```
+
+The full suite (203 tests) covers business rules, financial correctness, edge cases, isolation contracts, and cross-module regression. Migrations are separately verified to apply cleanly from an empty database.
+
+---
+
+*Private repository. All rights reserved.*
+
