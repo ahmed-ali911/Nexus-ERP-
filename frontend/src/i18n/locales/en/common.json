@@ -1,6 +1,39 @@
 {
-  "app": {
-    "title": "Sham ERP",
-    "tagline": "Foundation skeleton — no modules yet"
+  "app": { "title": "Sham ERP", "tagline": "Enterprise Resource Planning" },
+  "nav": {
+    "language": "Language",
+    "theme": "Theme",
+    "dark": "Dark mode",
+    "light": "Light mode"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "close": "Close",
+    "search": "Search",
+    "noData": "No data"
+  },
+  "health": {
+    "title": "Server Status",
+    "checking": "Checking...",
+    "ok": "Server is healthy",
+    "error": "Could not reach server"
+  },
+  "demo": {
+    "title": "Frontend Foundation",
+    "subtitle": "System verification — tokens, components, and backend connectivity",
+    "tokens": "Design Tokens",
+    "components": "App Components",
+    "apiSection": "API Layer",
+    "directionLabel": "Current direction",
+    "modeLabel": "Current mode",
+    "buttonVariants": "Button variants",
+    "inputExample": "Input example",
+    "inputPlaceholder": "Type something here...",
+    "inputLabel": "Demo text field"
   }
 }

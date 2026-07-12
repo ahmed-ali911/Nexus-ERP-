@@ -1,58 +1,32 @@
-import { useEffect, useMemo } from "react";
-import { CacheProvider } from "@emotion/react";
-import { Box, Button, CssBaseline, Stack, ThemeProvider, Typography } from "@mui/material";
-import { useTranslation } from "react-i18next";
+import "./i18n";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AppThemeProvider } from "@/theme";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { OrgProvider } from "@/contexts/OrgContext";
+import { ToastProvider } from "@/contexts/ToastContext";
+import { AppRouter } from "@/routes";
 
-import { createAppTheme, createEmotionCache, directionForLanguage } from "./theme";
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      retry: 1,
+    },
+  },
+});
 
-function App() {
-  const { t, i18n } = useTranslation();
-  const direction = directionForLanguage(i18n.language);
-
-  useEffect(() => {
-    document.documentElement.dir = direction;
-    document.documentElement.lang = i18n.language;
-  }, [direction, i18n.language]);
-
-  const cache = useMemo(() => createEmotionCache(direction), [direction]);
-  const theme = useMemo(() => createAppTheme(direction), [direction]);
-
+export default function App() {
   return (
-    <CacheProvider value={cache}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "100vh",
-            gap: 2,
-          }}
-        >
-          <Typography variant="h3">{t("app.title")}</Typography>
-          <Typography variant="body1" color="text.secondary">
-            {t("app.tagline")}
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant={i18n.language === "ar" ? "contained" : "outlined"}
-              onClick={() => i18n.changeLanguage("ar")}
-            >
-              العربية
-            </Button>
-            <Button
-              variant={i18n.language === "en" ? "contained" : "outlined"}
-              onClick={() => i18n.changeLanguage("en")}
-            >
-              English
-            </Button>
-          </Stack>
-        </Box>
-      </ThemeProvider>
-    </CacheProvider>
+    <AppThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthProvider>
+            <OrgProvider>
+              <AppRouter />
+            </OrgProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </QueryClientProvider>
+    </AppThemeProvider>
   );
 }
-
-export default App;

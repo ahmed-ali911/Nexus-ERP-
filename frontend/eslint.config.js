@@ -10,10 +10,7 @@ export default tseslint.config(
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
-    languageOptions: {
-      ecmaVersion: 2020,
-      globals: globals.browser,
-    },
+    languageOptions: { ecmaVersion: 2020, globals: globals.browser },
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
@@ -21,6 +18,23 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+    },
+  },
+  // Screens and routes must NOT import MUI directly — use src/components/ui/ instead
+  {
+    files: ["src/pages/**/*.{ts,tsx}", "src/routes/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "warn",
+        {
+          patterns: [
+            {
+              group: ["@mui/*", "@mui/material", "@mui/material/*", "@mui/icons-material", "@mui/icons-material/*"],
+              message: "Screens must not import MUI directly. Use components from @/components/ui instead.",
+            },
+          ],
+        },
+      ],
     },
   },
   eslintConfigPrettier,
