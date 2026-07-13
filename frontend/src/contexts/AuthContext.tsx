@@ -1,40 +1,49 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-export interface Permission {
-  module: string;
-  action: string;
-  resource: string;
-}
-
 export interface AuthUser {
   id: number;
   username: string;
   email: string;
   companyId: number;
+  fullNameEn: string;
+  fullNameAr: string;
+  isSuperuser: boolean;
   roles: string[];
-  permissions: string[]; // "module.resource.action" e.g. "sales.invoice.create"
+  /** Permission codes; superusers get ["*"], others get their explicit codes. */
+  permissions: string[];
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: AuthUser, token: string) => void;
+  setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void;
   clearAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function loadStoredUser(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem("auth_user");
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(loadStoredUser);
   const [token, setToken] = useState<string | null>(
     () => localStorage.getItem("access_token")
   );
 
-  const setAuth = (u: AuthUser, t: string) => {
+  const setAuth = (u: AuthUser, accessToken: string, refreshToken: string) => {
     setUser(u);
-    setToken(t);
-    localStorage.setItem("access_token", t);
+    setToken(accessToken);
+    localStorage.setItem("access_token", accessToken);
+    localStorage.setItem("refresh_token", refreshToken);
+    localStorage.setItem("auth_user", JSON.stringify(u));
   };
 
   const clearAuth = () => {
@@ -42,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    localStorage.removeItem("auth_user");
   };
 
   return (

@@ -1,10 +1,26 @@
 {
-  "app": { "title": "Sham ERP", "tagline": "Enterprise Resource Planning" },
+  "app": {
+    "title": "Nexus ERP",
+    "tagline": "Enterprise Resource Planning"
+  },
   "nav": {
     "language": "Language",
     "theme": "Theme",
     "dark": "Dark mode",
-    "light": "Light mode"
+    "light": "Light mode",
+    "section": {
+      "main": "Main",
+      "finance": "Finance",
+      "system": "System"
+    },
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "inventory": "Inventory",
+    "invoices": "Invoices",
+    "accounting": "Accounting",
+    "purchasing": "Purchasing",
+    "settings": "Settings",
+    "demo": "Demo"
   },
   "common": {
     "loading": "Loading...",
@@ -17,11 +33,37 @@
     "search": "Search",
     "noData": "No data"
   },
+  "shell": {
+    "search": "Search...",
+    "notifications": "Notifications",
+    "noNotifications": "No new notifications",
+    "markAllRead": "Mark all as read",
+    "collapseMenu": "Collapse sidebar",
+    "expandMenu": "Expand sidebar",
+    "openMenu": "Open menu",
+    "company": "Company",
+    "branch": "Branch",
+    "palette": {
+      "ocean": "Ocean",
+      "forest": "Forest",
+      "label": "Theme"
+    },
+    "userMenu": {
+      "profile": "Profile",
+      "preferences": "Preferences",
+      "devUser": "Dev User",
+      "logout": "Sign out"
+    }
+  },
   "health": {
     "title": "Server Status",
     "checking": "Checking...",
     "ok": "Server is healthy",
     "error": "Could not reach server"
+  },
+  "placeholder": {
+    "comingSoon": "Coming soon — this screen is under development.",
+    "hint": "{page} data will appear here once the module is complete."
   },
   "demo": {
     "title": "Frontend Foundation",
@@ -35,5 +77,27 @@
     "inputExample": "Input example",
     "inputPlaceholder": "Type something here...",
     "inputLabel": "Demo text field"
+  },
+  "login": {
+    "title": "Nexus ERP",
+    "subtitle": "Sign in to your account",
+    "companyCode": "Company code",
+    "companyCode_hint": "Provided by your company administrator",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "loading": "Signing in...",
+    "validation": {
+      "companyCode": "Please enter your company code",
+      "username": "Please enter your username",
+      "password": "Please enter your password"
+    },
+    "error": {
+      "invalidCredentials": "Invalid credentials. Please check your company code, username, and password.",
+      "locked": "Account is temporarily locked due to too many failed attempts. Please try again later.",
+      "inactive": "Account is inactive. Please contact your system administrator.",
+      "network": "Cannot reach the server. Please check your internet connection.",
+      "unknown": "Something went wrong. Please try again."
+    }
   }
 }
