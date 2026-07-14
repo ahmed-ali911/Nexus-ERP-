@@ -10,17 +10,48 @@
     "light": "Light mode",
     "section": {
       "main": "Main",
-      "finance": "Finance",
+      "sales": "Sales",
+      "purchasing": "Purchasing",
+      "inventory": "Inventory",
+      "accounting": "Accounting",
       "system": "System"
     },
     "dashboard": "Dashboard",
-    "products": "Products",
-    "inventory": "Inventory",
-    "invoices": "Invoices",
-    "accounting": "Accounting",
-    "purchasing": "Purchasing",
-    "settings": "Settings",
-    "demo": "Demo"
+    "demo": "Demo",
+    "sales": {
+      "invoices": "Sales Invoices",
+      "collections": "Collections",
+      "creditNotes": "Credit Notes",
+      "customers": "Customers",
+      "priceLists": "Price Lists"
+    },
+    "purchasing": {
+      "orders": "Purchase Orders",
+      "receipts": "Goods Receipts",
+      "invoices": "Supplier Invoices",
+      "payments": "Payments",
+      "suppliers": "Suppliers"
+    },
+    "inventory": {
+      "products": "Products",
+      "balances": "Stock Balances",
+      "movements": "Movements",
+      "transfers": "Transfers",
+      "batches": "Batches"
+    },
+    "accounting": {
+      "accounts": "Chart of Accounts",
+      "journal": "Journal Entries",
+      "trialBalance": "Trial Balance",
+      "pnl": "Profit & Loss",
+      "balanceSheet": "Balance Sheet"
+    },
+    "system": {
+      "users": "Users & Roles",
+      "organization": "Organization",
+      "approvals": "Approvals",
+      "settings": "Settings"
+    }
   },
   "common": {
     "loading": "Loading...",

@@ -10,17 +10,48 @@
     "light": "مظهر فاتح",
     "section": {
       "main": "رئيسي",
-      "finance": "المالية",
+      "sales": "المبيعات",
+      "purchasing": "المشتريات",
+      "inventory": "المخزون",
+      "accounting": "المحاسبة",
       "system": "النظام"
     },
     "dashboard": "لوحة التحكم",
-    "products": "المنتجات",
-    "inventory": "المخزون",
-    "invoices": "الفواتير",
-    "accounting": "المحاسبة",
-    "purchasing": "المشتريات",
-    "settings": "الإعدادات",
-    "demo": "العرض التوضيحي"
+    "demo": "العرض التوضيحي",
+    "sales": {
+      "invoices": "فواتير المبيعات",
+      "collections": "التحصيلات",
+      "creditNotes": "إشعارات دائن",
+      "customers": "العملاء",
+      "priceLists": "قوائم الأسعار"
+    },
+    "purchasing": {
+      "orders": "أوامر الشراء",
+      "receipts": "الاستلام",
+      "invoices": "فواتير الموردين",
+      "payments": "المدفوعات",
+      "suppliers": "الموردون"
+    },
+    "inventory": {
+      "products": "المنتجات",
+      "balances": "أرصدة المخزون",
+      "movements": "الحركات",
+      "transfers": "التحويلات",
+      "batches": "التشغيلات"
+    },
+    "accounting": {
+      "accounts": "دليل الحسابات",
+      "journal": "القيود اليومية",
+      "trialBalance": "ميزان المراجعة",
+      "pnl": "قائمة الدخل",
+      "balanceSheet": "الميزانية العمومية"
+    },
+    "system": {
+      "users": "المستخدمون والصلاحيات",
+      "organization": "المؤسسة",
+      "approvals": "الموافقات",
+      "settings": "الإعدادات"
+    }
   },
   "common": {
     "loading": "جاري التحميل...",
