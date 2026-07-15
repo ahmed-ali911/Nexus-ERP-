@@ -11,9 +11,11 @@ import { useId } from "react";
 export interface SelectOption {
   value: string | number;
   label: string;
+  disabled?: boolean;
 }
 
-export interface AppSelectProps extends Omit<SelectProps, "labelId"> {
+// Omit variant — AppSelect is always outlined. Callers needing other variants use MUI Select directly.
+export interface AppSelectProps extends Omit<SelectProps, "labelId" | "variant"> {
   label?: string;
   options: SelectOption[];
   helperText?: string;
@@ -34,9 +36,9 @@ export function AppSelect({
   return (
     <FormControl fullWidth={fullWidth} size={size} error={error}>
       {label && <InputLabel id={id}>{label}</InputLabel>}
-      <Select labelId={id} label={label} {...rest}>
+      <Select labelId={id} label={label} variant="outlined" {...rest}>
         {options.map((o) => (
-          <MenuItem key={o.value} value={o.value}>
+          <MenuItem key={o.value} value={o.value} disabled={o.disabled}>
             {o.label}
           </MenuItem>
         ))}

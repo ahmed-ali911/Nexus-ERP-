@@ -37,7 +37,6 @@ from app.modules.master_data.models import (
     SupplierType,
     UnitConversion,
     UnitOfMeasure,
-    UnitType,
 )
 from app.modules.organization.models import Branch, Company, Warehouse
 from app.modules.purchasing import schemas as p_schemas
@@ -135,16 +134,11 @@ def _get_or_create_approver(db, company_id, creator_id) -> User:
     return approver
 
 
-def _get_or_create_unit(db, company_id, code, unit_type):
-    u = db.query(UnitOfMeasure).filter_by(company_id=company_id, code=code).first()
+def _get_unit(db, company_id, code):
+    """Look up an existing unit by code — seeded by seed_sham_land_master_data."""
+    u = db.query(UnitOfMeasure).filter_by(company_id=company_id, code=code, is_deleted=False).first()
     if u is None:
-        u = md_service.create_unit(
-            db,
-            md_schemas.UnitOfMeasureCreate(
-                code=code, name_en=code, name_ar=code, symbol=code[:3], unit_type=unit_type
-            ),
-            company_id=company_id,
-        )
+        raise RuntimeError(f"Unit code='{code}' not found. Run seed_sham_land_master_data.py first.")
     return u
 
 
@@ -288,14 +282,12 @@ def main():
         print(f"Actor    : {actor.username}")
         print(f"Approver : {approver.username}\n")
 
-        # ── Units ────────────────────────────────────────────────────────────
-        gram = _get_or_create_unit(db, company.id, "G-P", UnitType.WEIGHT)
-        kg = _get_or_create_unit(db, company.id, "KG-P", UnitType.WEIGHT)
-        piece = _get_or_create_unit(db, company.id, "PC-P", UnitType.COUNT)
-        carton = _get_or_create_unit(db, company.id, "CTN-P", UnitType.COUNT)
-
-        _get_or_create_conversion(db, company.id, kg.id, gram.id, 1000)
-        _get_or_create_conversion(db, company.id, carton.id, piece.id, 24)
+        # ── Units — reuse the properly seeded units from seed_sham_land_master_data ──
+        gram   = _get_unit(db, company.id, "G")
+        kg     = _get_unit(db, company.id, "KG")
+        piece  = _get_unit(db, company.id, "PC")
+        carton = _get_unit(db, company.id, "CTN")
+        # Universal conversions are already seeded; no new ones needed here.
 
         # ── Categories ───────────────────────────────────────────────────────
         raw_cat = _get_or_create_category(

@@ -25,7 +25,7 @@ const PurchasingPaymentsPage = lazy(() => import("@/pages/placeholder/purchasing
 const SuppliersPage         = lazy(() => import("@/pages/placeholder/purchasing").then((m) => ({ default: m.SuppliersPage })));
 
 // ── Inventory ───────────────────────────────────────────────────────────────
-const InventoryProductsPage = lazy(() => import("@/pages/placeholder/inventory").then((m) => ({ default: m.InventoryProductsPage })));
+const ProductsPage          = lazy(() => import("@/pages/inventory/products/ProductsPage").then((m) => ({ default: m.ProductsPage })));
 const StockBalancesPage     = lazy(() => import("@/pages/placeholder/inventory").then((m) => ({ default: m.StockBalancesPage })));
 const MovementsPage         = lazy(() => import("@/pages/placeholder/inventory").then((m) => ({ default: m.MovementsPage })));
 const TransfersPage         = lazy(() => import("@/pages/placeholder/inventory").then((m) => ({ default: m.TransfersPage })));
@@ -90,7 +90,7 @@ export function AppRouter() {
 
             {/* Inventory */}
             <Route path="inventory">
-              <Route path="products"  element={<InventoryProductsPage />} />
+              <Route path="products"  element={<ProductsPage />} />
               <Route path="balances"  element={<StockBalancesPage />} />
               <Route path="movements" element={<MovementsPage />} />
               <Route path="transfers" element={<TransfersPage />} />

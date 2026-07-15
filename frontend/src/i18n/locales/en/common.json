@@ -62,7 +62,14 @@
     "save": "Save",
     "close": "Close",
     "search": "Search",
-    "noData": "No data"
+    "noData": "No data",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "view": "View",
+    "actions": "Actions",
+    "rowsPerPage": "Rows per page",
+    "of": "of"
   },
   "shell": {
     "search": "Search...",
@@ -108,6 +115,72 @@
     "inputExample": "Input example",
     "inputPlaceholder": "Type something here...",
     "inputLabel": "Demo text field"
+  },
+  "products": {
+    "searchPlaceholder": "Search by code or name...",
+    "newProduct": "New Product",
+    "type": {
+      "RAW_MATERIAL": "Raw Material",
+      "SEMI_FINISHED": "Semi-Finished",
+      "FINISHED_GOOD": "Finished Good"
+    },
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "category": "Category",
+      "type": "Type",
+      "unit": "Unit",
+      "status": "Status"
+    },
+    "flags": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "sellable": "Sellable",
+      "batchTracked": "Batch"
+    },
+    "create": {
+      "title": "New Product",
+      "success": "Product created successfully"
+    },
+    "edit": {
+      "title": "Edit Product",
+      "success": "Product updated successfully"
+    },
+    "delete": {
+      "title": "Delete Product",
+      "message": "Are you sure you want to delete product «{{code}}»? This cannot be undone.",
+      "success": "Product deleted successfully",
+      "confirm": "Delete"
+    },
+    "fields": {
+      "code": "Product Code",
+      "nameEn": "Name (English)",
+      "nameAr": "Name (Arabic)",
+      "category": "Category",
+      "type": "Product Type",
+      "baseUnit": "Base Unit",
+      "barcode": "Barcode (optional)",
+      "isActive": "Active",
+      "isSellable": "Sellable",
+      "isPurchasable": "Purchasable",
+      "isStockable": "Stockable",
+      "isBatchTracked": "Batch Tracked"
+    },
+    "validation": {
+      "code": "Please enter a product code",
+      "nameEn": "Please enter the English name",
+      "nameAr": "Please enter the Arabic name",
+      "category": "Please select a category",
+      "type": "Please select a product type",
+      "baseUnit": "Please select a base unit"
+    },
+    "empty": "No products found. Add a new product to get started.",
+    "error": {
+      "load": "Failed to load products. Please try again.",
+      "create": "Failed to create product. Please try again.",
+      "update": "Failed to update product. Please try again.",
+      "delete": "Failed to delete product. Please try again."
+    }
   },
   "login": {
     "title": "Nexus ERP",
